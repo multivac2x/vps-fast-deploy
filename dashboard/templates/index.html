@@ -30,6 +30,25 @@
       --mono: "IBM Plex Mono", monospace;
       --sans: "IBM Plex Sans", sans-serif;
     }
+    [data-theme="light"] {
+      --bg:        #f5f6f8;
+      --surface:   #ffffff;
+      --border:    #dde1ea;
+      --border2:   #c4cad8;
+      --text:      #1a1d26;
+      --muted:     #7a8299;
+      --accent:    #2563eb;
+      --accent-lo: #dbeafe;
+      --green:     #16a34a;
+      --green-lo:  #dcfce7;
+      --amber:     #b45309;
+      --amber-lo:  #fef3c7;
+      --red:       #dc2626;
+      --red-lo:    #fee2e2;
+      --pill-static: #dde1ea;
+      --pill-nextjs: #dcfce7;
+      --pill-flask:  #fce7f3;
+    }
 
     /* ── Reset ───────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,6 +106,19 @@
       font-size: 0.78rem;
       color: var(--muted);
     }
+    /* ── Theme toggle ────────────────────────────────────────────────────── */
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 5px 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .theme-toggle:hover { background: var(--border); color: var(--text); }
 
     /* ── Buttons ─────────────────────────────────────────────────────────── */
     .btn {
@@ -423,6 +455,7 @@
       <span class="logo-sub">dashboard</span>
     </div>
     <div class="header-right">
+      <button class="theme-toggle" id="theme-btn" title="Toggle light / dark mode" onclick="toggleTheme()">🌙</button>
     </div>
   </header>
 
@@ -533,6 +566,24 @@
 </div>
 
 <script>
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  (function () {
+    const saved = localStorage.getItem('theme') || 'dark';
+    applyTheme(saved, false);
+  })();
+
+  function applyTheme(theme, save) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+    if (save) localStorage.setItem('theme', theme);
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark', true);
+  }
+
   // ── Confirm promote ────────────────────────────────────────────────────────
   let pendingPromotion = null;
 
