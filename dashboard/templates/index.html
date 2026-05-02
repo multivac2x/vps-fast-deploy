@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hosting Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────────────── */
+    :root {
+      --bg:        #0d0f12;
+      --surface:   #141720;
+      --border:    #1e2330;
+      --border2:   #2a3045;
+      --text:      #c8cdd8;
+      --muted:     #5a6178;
+      --accent:    #4f8ef7;
+      --accent-lo: #1a2540;
+      --green:     #3dba7e;
+      --green-lo:  #0e2018;
+      --amber:     #e8a228;
+      --amber-lo:  #211800;
+      --red:       #e85050;
+      --red-lo:    #200e0e;
+      --pill-static: #3d4a6a;
+      --pill-nextjs: #1e3a2a;
+      --pill-flask:  #3a1e30;
+      --mono: "IBM Plex Mono", monospace;
+      --sans: "IBM Plex Sans", sans-serif;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .logo-mark {
+      font-family: var(--mono);
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+    }
+    .logo-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #user-label {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .btn:hover { background: var(--border); border-color: var(--border2); }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #6aa0f8; border-color: #6aa0f8; }
+    .btn-promote {
+      background: var(--green-lo);
+      border-color: var(--green);
+      color: var(--green);
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-promote:hover { background: var(--green); color: #0d0f12; }
+    .btn-promote:disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* ── Section headings ────────────────────────────────────────────────── */
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .section-head h2 {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .section-head .count {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 8px;
+    }
+
+    /* ── Version matrix ──────────────────────────────────────────────────── */
+    .matrix-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 48px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+    }
+    thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+    thead th {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      padding: 12px 16px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    thead th:first-child { width: 220px; }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface); }
+
+    td { padding: 14px 16px; vertical-align: middle; }
+
+    /* site name cell */
+    .site-name { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+    .type-pill {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 3px;
+      margin-left: 8px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .pill-static  { background: var(--pill-static);  color: #8fa8df; }
+    .pill-nextjs  { background: var(--pill-nextjs);  color: #5dc98a; }
+    .pill-flask   { background: var(--pill-flask);   color: #c87dab; }
+
+    /* env cells */
+    .env-cell { min-width: 160px; }
+    .env-inner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .version-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+    .version-str {
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+    .arrow-col {
+      width: 28px;
+      text-align: center;
+      color: var(--amber);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .arrow-eq { color: var(--border2); }
+
+    /* ── Log table ───────────────────────────────────────────────────────── */
+    .log-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .filter-input {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text);
+      outline: none;
+      width: 200px;
+      transition: border-color 0.15s;
+    }
+    .filter-input:focus { border-color: var(--accent); }
+    .log-table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .log-table-wrap table thead th { background: transparent; }
+    .log-table-wrap table tbody td {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .log-table-wrap table tbody td:nth-child(2) {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .env-tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tag-dev      { background: #1a2540; color: var(--accent); }
+    .tag-test     { background: #1a2030; color: #6ab0e8; }
+    .tag-preprod  { background: var(--amber-lo); color: var(--amber); }
+    .tag-production { background: var(--green-lo); color: var(--green); }
+    .tag-arrow { color: var(--muted); margin: 0 4px; }
+
+    .by-tag {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+      background: var(--accent-lo);
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 12px 18px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text);
+      max-width: 340px;
+      transform: translateY(20px);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok   { border-color: var(--green); color: var(--green); }
+    #toast.err  { border-color: var(--red);   color: var(--red); }
+
+    /* ── Confirm modal ───────────────────────────────────────────────────── */
+    #confirm-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,15,18,0.80);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 110;
+    }
+    #confirm-overlay.hidden { display: none; }
+    .confirm-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 380px;
+    }
+    .confirm-card h3 {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .confirm-card p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    .confirm-card p strong { color: var(--text); }
+    .confirm-card .field { margin: 0 0 20px; }
+    .confirm-card .field label {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .confirm-card .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .confirm-card .field input:focus { border-color: var(--accent); }
+    .confirm-error {
+      font-size: 0.74rem;
+      color: var(--red);
+      margin-bottom: 12px;
+      min-height: 16px;
+    }
+    .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── Spinner ─────────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty state ─────────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Confirm promote modal -->
+<div id="confirm-overlay" class="hidden">
+  <div class="confirm-card">
+    <h3>Confirm promotion</h3>
+    <p id="confirm-msg"></p>
+    <div class="field">
+      <label>Your username</label>
+      <input type="text" id="confirm-username" placeholder="alice" autocomplete="username" />
+    </div>
+    <div class="confirm-error" id="confirm-error"></div>
+    <div class="confirm-actions">
+      <button class="btn" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-primary" id="confirm-ok">Promote →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Main shell -->
+<div class="shell">
+  <header>
+    <div class="logo">
+      <span class="logo-mark">▸ hosting</span>
+      <span class="logo-sub">dashboard</span>
+    </div>
+    <div class="header-right">
+    </div>
+  </header>
+
+  <!-- Version Matrix -->
+  <div class="section-head">
+    <h2>Version matrix</h2>
+    <span class="count">{{ matrix|length }} site{{ 's' if matrix|length != 1 }}</span>
+  </div>
+
+  <div class="matrix-wrap">
+    <table id="matrix-table">
+      <thead>
+        <tr>
+          <th>Site</th>
+          {% for env in environments %}
+          <th>{{ env }}</th>
+          {% if not loop.last %}<th style="width:36px;"></th>{% endif %}
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in matrix %}
+        <tr>
+          <td>
+            <span class="site-name">{{ row.name }}</span>
+            <span class="type-pill pill-{{ row.type }}">{{ row.type }}</span>
+          </td>
+          {% for cell in row.cells %}
+          <td class="env-cell">
+            <div class="env-inner">
+              <div class="version-block">
+                <span class="version-str">{{ cell.version }}</span>
+                {% if not loop.last %}
+                  {% set next_cell = row.cells[loop.index] %}
+                  {% if cell.arrow %}
+                  <button
+                    class="btn btn-promote"
+                    onclick="openConfirm('{{ row.id }}','{{ row.name }}','{{ cell.env }}','{{ next_cell.env }}','{{ cell.version }}','{{ next_cell.version }}')"
+                  >↑ promote</button>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          {% if not loop.last %}
+          <td style="text-align:center; padding:0; width:36px;">
+            {% if cell.arrow %}
+            <span class="arrow-col">→</span>
+            {% else %}
+            <span class="arrow-col arrow-eq">=</span>
+            {% endif %}
+          </td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        {% if not matrix %}
+        <tr><td colspan="9" class="empty">No site YAML files found in sites/</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Promotion Log -->
+  <div class="section-head">
+    <h2>Promotion history</h2>
+    <span class="count" id="log-count">{{ log|length }}</span>
+  </div>
+
+  <div class="log-controls">
+    <input class="filter-input" id="filter-site" placeholder="Filter by site…" oninput="filterLog()" />
+    <input class="filter-input" id="filter-env" placeholder="Filter by environment…" oninput="filterLog()" />
+  </div>
+
+  <div class="log-table-wrap">
+    <table id="log-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Site</th>
+          <th>Transition</th>
+          <th>Version</th>
+          <th>By</th>
+        </tr>
+      </thead>
+      <tbody id="log-body">
+        {% for entry in log %}
+        <tr
+          data-site="{{ entry.site }}"
+          data-from="{{ entry.from_env }}"
+          data-to="{{ entry.to_env }}"
+        >
+          <td>{{ entry.ts }}</td>
+          <td>{{ entry.site }}</td>
+          <td>
+            <span class="env-tag tag-{{ entry.from_env }}">{{ entry.from_env }}</span>
+            <span class="tag-arrow">→</span>
+            <span class="env-tag tag-{{ entry.to_env }}">{{ entry.to_env }}</span>
+          </td>
+          <td>{{ entry.old_ver }} → {{ entry.new_ver }}</td>
+          <td><span class="by-tag">{{ entry.by }}</span></td>
+        </tr>
+        {% endfor %}
+        {% if not log %}
+        <tr><td colspan="5" class="empty">No promotions logged yet.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ── Confirm promote ────────────────────────────────────────────────────────
+  let pendingPromotion = null;
+
+  function openConfirm(siteId, siteName, fromEnv, toEnv, fromVer, toVer) {
+    pendingPromotion = { siteId, fromEnv, toEnv };
+    document.getElementById('confirm-msg').innerHTML =
+      `Promote <strong>${siteName}</strong> from <strong>${fromEnv}</strong> → <strong>${toEnv}</strong>?<br><br>` +
+      `Version in <strong>${toEnv}</strong> will be updated to <strong>${fromVer}</strong> (currently ${toVer}).`;
+    document.getElementById('confirm-error').textContent = '';
+    document.getElementById('confirm-username').value = '';
+    document.getElementById('confirm-overlay').classList.remove('hidden');
+    document.getElementById('confirm-ok').onclick = doPromote;
+    setTimeout(() => document.getElementById('confirm-username').focus(), 50);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeConfirm();
+    if (e.key === 'Enter' && pendingPromotion) doPromote();
+  });
+
+  function closeConfirm() {
+    document.getElementById('confirm-overlay').classList.add('hidden');
+    pendingPromotion = null;
+  }
+
+  async function doPromote() {
+    if (!pendingPromotion) return;
+    const username = document.getElementById('confirm-username').value.trim();
+    const errEl = document.getElementById('confirm-error');
+    if (!username) {
+      errEl.textContent = 'Username is required — it will be recorded in the promotion log.';
+      document.getElementById('confirm-username').focus();
+      return;
+    }
+    errEl.textContent = '';
+
+    const btn = document.getElementById('confirm-ok');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Promoting…';
+
+    const { siteId, fromEnv, toEnv } = pendingPromotion;
+    const res = await fetch('/api/promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site_id: siteId, from_env: fromEnv, to_env: toEnv, username }),
+    });
+    const data = await res.json();
+    closeConfirm();
+    btn.disabled = false;
+    btn.textContent = 'Promote →';
+
+    if (res.ok && data.ok) {
+      showToast(`✓ Promoted by ${username}. Reloading…`, 'ok');
+      setTimeout(() => location.reload(), 1400);
+    } else {
+      showToast('✗ ' + (data.error || 'Promotion failed'), 'err');
+    }
+  }
+
+  // ── Log filtering ──────────────────────────────────────────────────────────
+  function filterLog() {
+    const site = document.getElementById('filter-site').value.toLowerCase();
+    const env  = document.getElementById('filter-env').value.toLowerCase();
+    const rows = document.querySelectorAll('#log-body tr[data-site]');
+    let visible = 0;
+    rows.forEach(row => {
+      const matchSite = row.dataset.site.includes(site);
+      const matchEnv  = row.dataset.from.includes(env) || row.dataset.to.includes(env);
+      const show = matchSite && matchEnv;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('log-count').textContent = visible;
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 3500);
+  }
+</script>
+</body>
+</html>
