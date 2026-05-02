@@ -75,9 +75,7 @@ hosting/
 ```bash
 git clone https://github.com/multivac2x/vps-dashboard.git
 cd vps-dashboard
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r dashboard/requirements.txt --break-system-packages
 ```
 
 **Updating from the repo:**
@@ -85,12 +83,11 @@ pip install -r requirements.txt
 ```bash
 cd vps-dashboard
 git pull origin main
-pip install -r requirements.txt   # only needed if dependencies changed
+pip install -r requirements.txt -r dashboard/requirements.txt --break-system-packages
+# only needed if dependencies changed
 ```
 
 > `generated/` and `logs/` are gitignored — `git pull` will never overwrite your `Caddyfile`, `ecosystem.config.js`, or `promotion.log`. Re-run `python3 vps.py generate` after pulling only if you've changed files in `sites/` or `auth/`.
-
-> The only runtime dependency is `pyyaml`. The venv is excluded from git via `.gitignore`.
 
 ---
 

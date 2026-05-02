@@ -126,14 +126,19 @@ def _build_caddyfile(sites: list, auth_store: dict) -> list[str]:
 
             auth_line = f"\n    import auth_{auth_name}" if auth_name else ""
 
+            # Use domain name for production if set, otherwise port binding
+            domain = site.get("domain")
+            use_domain = (env == "production" and domain)
+            binding = domain if use_domain else f":{port}"
+    
             lines.append(f"# {site['name']} — {env}")
             if site_type == "static":
-                lines.append(f":{port} {{")
+                lines.append(f"{binding} {{")
                 lines.append(f"    root * {env_cfg['path']}")
                 lines.append(f"    file_server{auth_line}")
                 lines.append(f"}}\n")
             else:
-                lines.append(f":{port} {{")
+                lines.append(f"{binding} {{")
                 lines.append(f"    reverse_proxy localhost:{port}{auth_line}")
                 lines.append(f"}}\n")
 

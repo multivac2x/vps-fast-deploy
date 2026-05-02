@@ -31,6 +31,7 @@ def register(subparsers):
                    help="Site type")
     p.add_argument("--base-port",    type=int,       help="First port for dev. Auto-detected if omitted.")
     p.add_argument("--base-path",                    help="Root filesystem path. Auto-set if omitted.")
+    p.add_argument("--domain",                       help="Public domain for production (e.g. example.com). Caddy will provision SSL automatically.")
     p.add_argument("--auth-dev",                     help="Auth file name for dev environment")
     p.add_argument("--auth-test",                    help="Auth file name for test environment")
     p.add_argument("--auth-preprod",                 help="Auth file name for preprod environment")
@@ -139,9 +140,12 @@ def _build_site(args, base_port: int) -> dict:
 
         envs[env] = entry
 
-    return {
+    site = {
         "id": site_id,
         "name": args.name,
         "type": site_type,
         "environments": envs,
     }
+    if args.domain:
+        site["domain"] = args.domain
+    return site
