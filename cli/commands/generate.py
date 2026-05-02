@@ -159,7 +159,15 @@ def _build_pm2_apps(sites: list, auth_store: dict) -> list[dict]:
             "autorestart": True,
             "watch": False,
             "env": {"HOME": "/root"},
-        }
+        },
+        {
+            "name": "dashboard",
+            "script": "dashboard/app.py",
+            "interpreter": "python3",
+            "autorestart": True,
+            "watch": False,
+            "env": {"DASHBOARD_PORT": "9000"},
+        },
     ]
 
     for site in sites:
