@@ -16,9 +16,8 @@ from flask import Flask, jsonify, render_template, request
 # ── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent   # hosting/
 SITES_DIR = BASE_DIR / "sites"
-PROMOTE_SCRIPT = BASE_DIR / "promote.py"
-GENERATE_SCRIPT = BASE_DIR / "generate-config.py"
-PROMOTION_LOG = BASE_DIR / "promotion.log"
+VPS_SCRIPT = BASE_DIR / "vps.py"
+PROMOTION_LOG = BASE_DIR / "logs" / "promotion.log"
 
 # ── Config ───────────────────────────────────────────────────────────────────
 ENVIRONMENTS = ["dev", "test", "preprod", "production"]
@@ -111,21 +110,22 @@ def promote():
     if ENVIRONMENTS.index(from_env) + 1 != ENVIRONMENTS.index(to_env):
         return jsonify({"error": "Can only promote to the next environment"}), 400
 
-    # Run promote.py
-    promote_cmd = ["python3", str(PROMOTE_SCRIPT), site_id, from_env, to_env, username]
+    # Run vps.py promote
+    promote_cmd = ["python3", str(VPS_SCRIPT), "promote", site_id, from_env, to_env, username]
     result = subprocess.run(promote_cmd, capture_output=True, text=True, cwd=str(BASE_DIR))
     if result.returncode != 0:
-        return jsonify({"error": result.stderr or "promote.py failed", "stdout": result.stdout}), 500
+        return jsonify({"error": result.stderr or "vps.py promote failed", "stdout": result.stdout}), 500
 
     # Regenerate Caddy + PM2 configs
     gen_result = subprocess.run(
-        ["python3", str(GENERATE_SCRIPT)], capture_output=True, text=True, cwd=str(BASE_DIR)
+        ["python3", str(VPS_SCRIPT), "generate"], capture_output=True, text=True, cwd=str(BASE_DIR)
     )
 
     # Reload PM2
     reload_caddy = subprocess.run(["pm2", "reload", "caddy"], capture_output=True, text=True)
     reload_pm2 = subprocess.run(
-        ["pm2", "reload", "ecosystem.config.js"], capture_output=True, text=True, cwd=str(BASE_DIR)
+        ["pm2", "reload", "generated/ecosystem.config.js"],
+        capture_output=True, text=True, cwd=str(BASE_DIR)
     )
 
     return jsonify({

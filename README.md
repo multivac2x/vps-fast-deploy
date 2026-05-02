@@ -70,11 +70,25 @@ hosting/
 
 ## Setup
 
+**First install on the VPS:**
+
 ```bash
+git clone https://github.com/multivac2x/vps-dashboard.git
+cd vps-dashboard
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+**Updating from the repo:**
+
+```bash
+cd vps-dashboard
+git pull origin main
+pip install -r requirements.txt   # only needed if dependencies changed
+```
+
+> `generated/` and `logs/` are gitignored — `git pull` will never overwrite your `Caddyfile`, `ecosystem.config.js`, or `promotion.log`. Re-run `python3 vps.py generate` after pulling only if you've changed files in `sites/` or `auth/`.
 
 > The only runtime dependency is `pyyaml`. The venv is excluded from git via `.gitignore`.
 
@@ -264,10 +278,26 @@ A chronological log of all promotions, filterable by site and environment, showi
 
 ### Running the dashboard
 
+The dashboard requires Flask in addition to `pyyaml`. Its own [`dashboard/requirements.txt`](dashboard/requirements.txt) lists all dependencies:
+
 ```bash
-cd dashboard
-pip install -r requirements.txt
-python3 app.py
+# From the project root (venv already activated)
+pip install -r dashboard/requirements.txt
+
+# Start the dashboard (default port: 9000)
+python3 dashboard/app.py
+
+# Or on a custom port:
+DASHBOARD_PORT=8080 python3 dashboard/app.py
+```
+
+Then open **`http://<your-vps-ip>:9000`** in a browser.
+
+To keep it running under PM2:
+
+```bash
+pm2 start dashboard/app.py --name dashboard --interpreter python3
+pm2 save
 ```
 
 ---
