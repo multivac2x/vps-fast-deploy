@@ -455,14 +455,12 @@
             <div class="env-inner">
               <div class="version-block">
                 <span class="version-str">{{ cell.version }}</span>
-                {% if not loop.last %}
+                {% if not loop.last and cell.present %}
                   {% set next_cell = row.cells[loop.index] %}
-                  {% if cell.arrow %}
                   <button
                     class="btn btn-promote"
                     onclick="openConfirm('{{ row.id }}','{{ row.name }}','{{ cell.env }}','{{ next_cell.env }}','{{ cell.version }}','{{ next_cell.version }}')"
                   >↑ promote</button>
-                  {% endif %}
                 {% endif %}
               </div>
             </div>
