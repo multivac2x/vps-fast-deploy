@@ -68,6 +68,18 @@ hosting/
 
 ---
 
+## Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+> The only runtime dependency is `pyyaml`. The venv is excluded from git via `.gitignore`.
+
+---
+
 ## CLI — `vps.py`
 
 All management operations go through a single entry point with three subcommands:
