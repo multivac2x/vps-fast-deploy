@@ -1,4 +1,4 @@
-# vps-dashboard
+# VPS Fast Deploy
 
 A self-hosted VPS management system for deploying and managing static and dynamic websites across multiple environments, powered by **Caddy** as the web server and **PM2** as the unified process manager — plus a lightweight **read-only dashboard** for monitoring site versions and promotion history.
 
@@ -8,13 +8,13 @@ A self-hosted VPS management system for deploying and managing static and dynami
 
 This project has two components:
 
-1. **Hosting system** — configuration-driven site management via YAML files, generator scripts, Caddy, and PM2
+1. **Hosting system** — configuration-driven site management via YAML files, a single `vps.py` CLI, Caddy, and PM2
 2. **Dashboard** — a read-only web app that visualises deployed versions and promotion history
 
 **Stack:**
 - [Caddy](https://caddyserver.com/) — web server, reverse proxy, automatic SSL, basic auth
 - [PM2](https://pm2.keymetrics.io/) — process manager for all processes (Caddy + Next.js + Flask)
-- Python 3 — generator, promotion, and scaffolding scripts
+- Python 3 — `vps.py` CLI (create-site, generate, promote subcommands)
 - Dashboard — lightweight Flask app (served on a separate port)
 
 ---
@@ -50,12 +50,12 @@ hosting/
 ├── auth/                    # Shared bcrypt credential files
 │   ├── dev-team.yaml
 │   └── stakeholders.yaml
-├── create-site.py           # Scaffold a new site YAML with auto port assignment
-├── generate-config.py       # Globs sites/ + auth/ → Caddyfile + ecosystem.config.js
-├── promote.py               # Promote a site version between environments + log
-├── Caddyfile                # Auto-generated — do not edit manually
-├── ecosystem.config.js      # Auto-generated — do not edit manually
-├── promotion.log            # Append-only promotion audit trail
+├── generated/               # Auto-generated outputs — do not edit manually
+│   ├── Caddyfile
+│   └── ecosystem.config.js
+├── logs/                    # Operational logs — do not edit manually
+│   └── promotion.log
+├── vps.py                   # Single CLI entry point
 ├── dashboard/               # Read-only status dashboard
 │   ├── app.py
 │   ├── requirements.txt
@@ -68,16 +68,22 @@ hosting/
 
 ---
 
-## Quick Start
+## CLI — `vps.py`
 
-### 1. Create a new site
+All management operations go through a single entry point with three subcommands:
+
+```bash
+python3 vps.py <subcommand> [options]
+```
+
+### `create-site` — Scaffold a new site
 
 ```bash
 # Static site, auto port assignment
-python3 create-site.py --id my-site --name "My Site" --type static
+python3 vps.py create-site --id my-site --name "My Site" --type static
 
 # Next.js app with auth on dev/test/preprod
-python3 create-site.py \
+python3 vps.py create-site \
   --id my-app \
   --name "My App" \
   --type nextjs \
@@ -87,7 +93,7 @@ python3 create-site.py \
   --version 1.0.0
 
 # Flask API, dry run first
-python3 create-site.py \
+python3 vps.py create-site \
   --id my-api \
   --name "My API" \
   --type flask \
@@ -95,7 +101,7 @@ python3 create-site.py \
   --dry-run
 ```
 
-`create-site.py` options:
+Options:
 
 | Option | Required | Description |
 |---|---|---|
@@ -110,27 +116,50 @@ python3 create-site.py \
 | `--version` | | Initial version. Defaults to `0.1.0` |
 | `--dry-run` | | Print YAML without writing |
 
-### 2. Generate configs
+### `generate` — Rebuild Caddy + PM2 configs
 
 ```bash
-python3 generate-config.py
+python3 vps.py generate
 ```
 
-Reads all `sites/*.yaml` and `auth/*.yaml`, writes `Caddyfile` and `ecosystem.config.js`.
+Reads all `sites/*.yaml` and `auth/*.yaml`, writes:
+- `generated/Caddyfile`
+- `generated/ecosystem.config.js`
 
-### 3. Start all processes
-
-```bash
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup   # auto-start on server reboot
-```
-
-### 4. Reload after config changes
+Then reload:
 
 ```bash
 pm2 reload caddy
-pm2 reload ecosystem.config.js
+pm2 reload generated/ecosystem.config.js
+```
+
+### `promote` — Promote a site between environments
+
+```bash
+python3 vps.py promote <site-id> <from-env> <to-env> <promoted-by>
+
+# Example
+python3 vps.py promote my-nextjs-app preprod production alice
+python3 vps.py generate
+pm2 reload caddy
+pm2 reload generated/ecosystem.config.js
+```
+
+All promotions are appended to `logs/promotion.log`:
+
+```
+2025-04-10T14:32:01Z | site=my-nextjs-app  | preprod → production | version: 0.1.4 → 0.1.5 | by=alice
+2025-04-15T09:12:44Z | site=my-flask-api   | test → preprod       | version: 0.2.7 → 0.2.8 | by=bob
+```
+
+---
+
+## Starting All Processes
+
+```bash
+pm2 start generated/ecosystem.config.js
+pm2 save
+pm2 startup   # auto-start on server reboot
 ```
 
 ---
@@ -174,7 +203,7 @@ environments:
 - `type: static` has no `pm2_name` (served directly by Caddy)
 - `type: nextjs` and `type: flask` have a `pm2_name` per environment
 - `auth` is optional; omitting it means no login required for that environment
-- Ports are auto-assigned in blocks of 10 by `create-site.py`
+- Ports are auto-assigned in blocks of 10 by `vps.py create-site`
 
 ---
 
@@ -197,34 +226,13 @@ Generate a hash with:
 caddy hash-password
 ```
 
-Auth files are compiled into **named Caddy snippets** — hashes are defined once regardless of how many sites reference the same credentials file.
-
----
-
-## Promoting Between Environments
-
-```bash
-python3 promote.py <site-id> <from-env> <to-env> <promoted-by>
-
-# Example
-python3 promote.py my-nextjs-app preprod production alice
-python3 generate-config.py
-pm2 reload caddy
-pm2 reload ecosystem.config.js
-```
-
-All promotions are appended to `promotion.log` in this format:
-
-```
-2025-04-10T14:32:01Z | site=my-nextjs-app  | preprod → production | version: 0.1.4 → 0.1.5 | by=alice
-2025-04-15T09:12:44Z | site=my-flask-api   | test → preprod       | version: 0.2.7 → 0.2.8 | by=bob
-```
+Auth files are compiled into **named Caddy snippets** in `generated/Caddyfile` — hashes are defined once regardless of how many sites reference the same credentials file.
 
 ---
 
 ## Dashboard
 
-The dashboard is a **read-only web application** that reads `sites/*.yaml` and `promotion.log` — it never writes to them.
+The dashboard is a **read-only web application** that reads `sites/*.yaml` and `logs/promotion.log` — it never writes to them.
 
 ### Version Matrix
 
@@ -250,8 +258,6 @@ pip install -r requirements.txt
 python3 app.py
 ```
 
-The dashboard is served on a separate port and must be added as its own entry in `sites/` and `ecosystem.config.js` if you want PM2 to manage it.
-
 ---
 
 ## Key Design Decisions
@@ -262,7 +268,9 @@ The dashboard is served on a separate port and must be added as its own entry in
 | Auth credentials separate from site config | `auth/<name>.yaml` | Reusable across sites and environments |
 | Auth in Caddyfile | Named snippets + `import` | Hashes defined once, not repeated per site |
 | Process supervision | PM2 manages Caddy too | Single tool for all processes, unified logs |
-| Promotion audit trail | Append-only `promotion.log` | Simple, durable, no database needed |
+| Generated outputs isolated | `generated/` directory | Clear separation of source files from outputs |
+| Promotion audit trail | Append-only `logs/promotion.log` | Simple, durable, no database needed |
+| Single CLI entry point | `vps.py` with subcommands | One file to find, one interface to learn |
 | Dashboard separation | Separate app, read-only | Avoids coupling config management to UI |
 
 ---

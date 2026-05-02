@@ -32,7 +32,7 @@ Each environment runs on a **different port** (or subdomain) on the same server,
 
 ## 3. Site Registry — One File Per Site
 
-Inspired by Apache's `sites-available/` pattern, each website has its **own YAML file** inside a `sites/` directory. There is no central registry file — `generate-config.py` simply globs all `*.yaml` files in that folder.
+Inspired by Apache's `sites-available/` pattern, each website has its **own YAML file** inside a `sites/` directory. There is no central registry file — `vps.py generate` simply globs all `*.yaml` files in that folder.
 
 This makes it easy to add, remove, or edit a single site without touching anything else.
 
@@ -80,7 +80,7 @@ environments:
 
 The `auth` field is optional. When present, it references a credentials file by name from the `auth/` directory (see Section 3a). Omitting it means no login is required for that environment.
 
-> **Convention:** the filename must match the `id` field (e.g. `my-nextjs-app.yaml` → `id: my-nextjs-app`). This is enforced by `generate-config.py` at load time.
+> **Convention:** the filename must match the `id` field (e.g. `my-nextjs-app.yaml` → `id: my-nextjs-app`). This is enforced by `vps.py generate` at load time.
 
 ---
 
@@ -134,7 +134,7 @@ caddy hash-password
 
 ## 4. Caddy Configuration
 
-Caddy is configured via a `Caddyfile` that is **auto-generated** from the `sites/` and `auth/` directories by a script (see Section 6).
+Caddy is configured via a `Caddyfile` that is **auto-generated** into `generated/` from the `sites/` and `auth/` directories by `vps.py generate` (see Section 6).
 
 The generator writes all auth credential sets as **named Caddy snippets** at the top of the file. Each snippet is defined once and reused via `import` — so if ten sites share `dev-team` credentials, the hashes appear in the file exactly once.
 
@@ -216,7 +216,7 @@ module.exports = {
     {
       name: "caddy",
       script: "caddy",
-      args: "run --config /path/to/hosting/Caddyfile",
+      args: "run --config /path/to/hosting/generated/Caddyfile",
       interpreter: "none",
       autorestart: true,
       watch: false,
@@ -263,7 +263,7 @@ module.exports = {
 Start all processes with:
 
 ```bash
-pm2 start ecosystem.config.js
+pm2 start generated/ecosystem.config.js
 pm2 save
 pm2 startup   # registers PM2 itself to start on server reboot
 ```
@@ -273,16 +273,16 @@ To reload Caddy after a config change without downtime:
 ```bash
 pm2 reload caddy
 # or, to trigger a graceful Caddy config reload internally:
-pm2 exec caddy -- caddy reload --config /path/to/Caddyfile
+pm2 exec caddy -- caddy reload --config /path/to/generated/Caddyfile
 ```
 
 ---
 
 ## 6. Config Generator Script
 
-A single script globs all `*.yaml` files from the `sites/` and `auth/` directories, writes auth snippets once at the top of the `Caddyfile`, and uses `import` in each site block.
+A single subcommand (`vps.py generate`) globs all `*.yaml` files from the `sites/` and `auth/` directories, writes auth snippets once at the top of the `Caddyfile`, and uses `import` in each site block. Outputs go to `generated/`.
 
-### Script: `generate-config.py`
+### `vps.py generate` — Implementation
 
 ```python
 import glob
@@ -291,7 +291,7 @@ import yaml
 import json
 
 ENVIRONMENTS = ["dev", "test", "preprod", "production"]
-CADDYFILE_PATH = "/path/to/hosting/Caddyfile"
+CADDYFILE_PATH = "/path/to/hosting/generated/Caddyfile"
 
 # --- Load auth credential files ---
 auth_store = {}
@@ -391,11 +391,11 @@ for site in sites:
             })
 
 # Write Caddyfile
-with open("Caddyfile", "w") as f:
+with open("generated/Caddyfile", "w") as f:
     f.write("\n".join(lines))
 
 # Write ecosystem.config.js
-with open("ecosystem.config.js", "w") as f:
+with open("generated/ecosystem.config.js", "w") as f:
     f.write("module.exports = {\n  apps: ")
     f.write(json.dumps(pm2_apps, indent=2))
     f.write("\n};\n")
@@ -406,9 +406,9 @@ print(f"✅ Loaded {len(sites)} site(s), {len(auth_store)} auth snippet(s). Conf
 Run with:
 
 ```bash
-python3 generate-config.py
-pm2 reload caddy        # reloads Caddy with new Caddyfile
-pm2 reload ecosystem.config.js   # reloads dynamic app processes
+python3 vps.py generate
+pm2 reload caddy                          # reloads Caddy with new Caddyfile
+pm2 reload generated/ecosystem.config.js  # reloads dynamic app processes
 ```
 
 ---
@@ -420,16 +420,16 @@ Promotion (e.g. preprod → production) is handled by a dedicated script that:
 1. Opens only the **specific site's YAML file** from `sites/`
 2. Updates the version for the target environment
 3. Regenerates and reloads Caddy + PM2 configs
-4. **Appends a log entry** to `promotion.log`
+4. **Appends a log entry** to `logs/promotion.log`
 
-### Script: `promote.py`
+### `vps.py promote` — Implementation
 
 ```python
 import yaml
 import sys
 from datetime import datetime
 
-LOG_FILE = "promotion.log"
+LOG_FILE = "logs/promotion.log"
 
 site_id = sys.argv[1]          # e.g. my-nextjs-app
 from_env = sys.argv[2]         # e.g. preprod
@@ -465,19 +465,19 @@ with open(LOG_FILE, "a") as f:
     f.write(log_entry)
 
 print(f"✅ Promoted {site_id} from {from_env} to {to_env} ({new_version})")
-print("🔁 Re-run generate-config.py and reload Caddy/PM2 to apply.")
+print("🔁 Re-run 'python3 vps.py generate' and reload Caddy/PM2 to apply.")
 ```
 
 Usage:
 
 ```bash
-python3 promote.py my-nextjs-app preprod production alice
-python3 generate-config.py
+python3 vps.py promote my-nextjs-app preprod production alice
+python3 vps.py generate
 pm2 reload caddy
-pm2 reload ecosystem.config.js
+pm2 reload generated/ecosystem.config.js
 ```
 
-### `promotion.log` — Example Output
+### `logs/promotion.log` — Example Output
 
 ```
 2025-04-10T14:32:01Z | site=my-nextjs-app | preprod → production | version: 1.9.8 → 2.0.0 | by=alice
@@ -489,12 +489,12 @@ pm2 reload ecosystem.config.js
 
 ## 8. Site Creation Script
 
-`create-site.py` scaffolds a new site YAML file inside `sites/` from command-line arguments. It auto-assigns ports by scanning existing site files to find the next available port block, and validates all inputs before writing anything.
+The `create-site` subcommand scaffolds a new site YAML file inside `sites/` from command-line arguments. It auto-assigns ports by scanning existing site files to find the next available port block, and validates all inputs before writing anything.
 
 ### Usage
 
 ```bash
-python3 create-site.py [OPTIONS]
+python3 vps.py create-site [OPTIONS]
 ```
 
 ### Options
@@ -516,10 +516,10 @@ python3 create-site.py [OPTIONS]
 
 ```bash
 # Static site, auto port, no auth
-python3 create-site.py --id pescatoreluca --name "Pescatore Luca" --type static
+python3 vps.py create-site --id pescatoreluca --name "Pescatore Luca" --type static
 
 # Next.js app with auth on dev/test/preprod
-python3 create-site.py \
+python3 vps.py create-site \
   --id pescatoreluca \
   --name "Pescatore Luca" \
   --type nextjs \
@@ -529,7 +529,7 @@ python3 create-site.py \
   --version 1.0.0
 
 # Flask API, custom base port and path, dry run first
-python3 create-site.py \
+python3 vps.py create-site \
   --id pescatoreluca-api \
   --name "Pescatore Luca API" \
   --type flask \
@@ -539,7 +539,7 @@ python3 create-site.py \
   --dry-run
 ```
 
-### Script: `create-site.py`
+### `vps.py create-site` — Implementation
 
 ```python
 import argparse
@@ -573,7 +573,7 @@ def validate_auth(auth_name):
     """Warn if the referenced auth file does not exist."""
     if auth_name and not os.path.exists(f"auth/{auth_name}.yaml"):
         print(f"⚠️  Warning: auth/'{auth_name}.yaml' does not exist yet. "
-              f"Create it before running generate-config.py.")
+              f"Create it before running 'python3 vps.py generate'.")
 
 def build_site(args, base_port):
     """Build the site dict from parsed arguments."""
@@ -679,9 +679,9 @@ def main():
     print(f"")
     print(f"Next steps:")
     print(f"  1. Review {output_file} and adjust paths or versions if needed")
-    print(f"  2. python3 generate-config.py")
+    print(f"  2. python3 vps.py generate")
     print(f"  3. pm2 reload caddy")
-    print(f"  4. pm2 reload ecosystem.config.js")
+    print(f"  4. pm2 reload generated/ecosystem.config.js")
 
 if __name__ == "__main__":
     main()
@@ -692,7 +692,7 @@ if __name__ == "__main__":
 Running the following command:
 
 ```bash
-python3 create-site.py \
+python3 vps.py create-site \
   --id pescatoreluca \
   --name "Pescatore Luca" \
   --type nextjs \
@@ -739,20 +739,20 @@ environments:
 
 ```
 hosting/
-├── sites/                         # One YAML file per website — edit here
+├── sites/                         # One YAML file per website — source of truth
 │   ├── my-nextjs-app.yaml
 │   ├── my-flask-api.yaml
 │   └── my-static-site.yaml
 ├── auth/                          # Shared credential files — referenced by sites
 │   ├── dev-team.yaml
 │   └── stakeholders.yaml
-├── create-site.py                 # Scaffolds a new site YAML with auto port assignment
-├── generate-config.py             # Globs sites/ + auth/ → Caddyfile + ecosystem.config.js
-├── promote.py                     # Promotes a single site's version + logs it
-├── Caddyfile                      # Auto-generated — do not edit manually
-├── ecosystem.config.js            # Auto-generated — do not edit manually
-├── promotion.log                  # Append-only promotion history
-└── README.md                      # This file
+├── generated/                     # Auto-generated outputs — do not edit manually
+│   ├── Caddyfile
+│   └── ecosystem.config.js
+├── logs/                          # Operational logs — do not edit manually
+│   └── promotion.log
+├── vps.py                         # Single CLI entry point (subcommands: create-site, generate, promote)
+└── README.md
 ```
 
 ---
@@ -765,10 +765,10 @@ hosting/
 | `auth/*.yaml` | Shared credential files (bcrypt hashes) — compiled into Caddy snippets, reusable across any site/env |
 | Caddy      | Serve static files, reverse proxy, SSL, basic auth  |
 | PM2        | Keep **all** processes alive (Caddy + Next.js + Flask), auto-restart on crash |
-| `create-site.py` | Scaffold a new site YAML with validated inputs and auto port assignment |
-| `generate-config.py` | Globs `sites/` + `auth/` → Caddy + PM2 configs |
-| `promote.py` | Promotes a single site's version, updates its YAML, logs it |
-| `promotion.log` | Immutable audit trail of all promotions        |
+| `vps.py create-site` | Scaffold a new site YAML with validated inputs and auto port assignment |
+| `vps.py generate` | Globs `sites/` + `auth/` → `generated/Caddyfile` + `generated/ecosystem.config.js` |
+| `vps.py promote` | Promotes a single site's version, updates its YAML, logs to `logs/promotion.log` |
+| `logs/promotion.log` | Immutable audit trail of all promotions |
 
 ---
 
